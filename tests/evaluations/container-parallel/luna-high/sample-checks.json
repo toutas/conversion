@@ -1,0 +1,22 @@
+{
+  "scope": "Handwritten sample-specific literal/structural assertions; not execution or complete semantic equivalence.",
+  "checks": {
+    "accepted_source_only": true,
+    "all_completed_calls_are_luna": true,
+    "high_effort_requested": true,
+    "manual_trigger_explicit": true,
+    "exact_build_command_present": true,
+    "exact_test_command_present": true,
+    "app_env_ci": true,
+    "junit_glob_and_always_guard": true,
+    "jar_glob_and_always_guard": true,
+    "accepted_round_actionlint_passed": true,
+    "explicit_gradle_image_present": true,
+    "root_container_user_present": true,
+    "exact_tool_commands_present": true,
+    "exact_lint_command_present": true,
+    "parallel_test_lint_dependency_shape": true,
+    "main_branch_guard_present": true,
+    "pipeline_archive_job_always_guarded": true
+  }
+}

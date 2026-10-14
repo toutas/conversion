@@ -1,0 +1,37 @@
+name: Jenkinsfile conversion
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./gradlew --no-daemon clean build
+
+      - name: Test
+        id: run_tests
+        run: ./gradlew --no-daemon test
+
+      - name: Publish JUnit results
+        if: ${{ always() && steps.run_tests.outcome != 'skipped' }}
+        uses: dorny/test-reporter@v2
+        with:
+          name: JUnit Test Results
+          path: build/test-results/test/*.xml
+          reporter: java-junit
+          fail-on-error: 'true'
+
+      - name: Archive build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/libs/*.jar
+          if-no-files-found: error

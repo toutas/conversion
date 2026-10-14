@@ -1,0 +1,56 @@
+{
+  "workflow_yaml": "name: Gradle CI\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  checks: write\n\nenv:\n  APP_ENV: ci\n\njobs:\n  pipeline:\n    runs-on: ubuntu-24.04\n    env:\n      CI_CONTAINER: jenkins-${{ github.run_id }}-${{ github.run_attempt }}\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - name: Start Docker agent\n        id: agent\n        shell: bash\n        run: |\n          container_id=\"$(docker run --detach \\\n            --name \"$CI_CONTAINER\" \\\n            --user root \\\n            --workdir /workspace \\\n            --env APP_ENV \\\n            --volume \"$GITHUB_WORKSPACE:/workspace\" \\\n            --entrypoint /bin/sh \\\n            gradle:8.7.0-jdk17-alpine \\\n            -c 'exec tail -f /dev/null')\"\n          printf 'id=%s\\n' \"$container_id\" >> \"$GITHUB_OUTPUT\"\n\n      - name: Prepare Tools\n        shell: bash\n        run: |\n          docker exec \"$CI_CONTAINER\" sh -c 'apk add --no-cache bash git jq'\n          docker exec \"$CI_CONTAINER\" sh -c 'jq --version'\n\n      - name: Build\n        shell: bash\n        run: docker exec \"$CI_CONTAINER\" sh -c './gradlew --no-daemon clean build'\n\n      - name: Tests - start Lint and run Unit Tests in parallel\n        id: parallel\n        shell: bash\n        run: |\n          docker exec --detach \"$CI_CONTAINER\" sh -c '\n            ./gradlew --no-daemon check > /tmp/gha-lint.log 2>&1\n            status=$?\n            printf \"%s\\n\" \"$status\" > /tmp/gha-lint.exit\n          '\n          printf 'lint_started=true\\n' >> \"$GITHUB_OUTPUT\"\n          docker exec \"$CI_CONTAINER\" sh -c './gradlew --no-daemon test'\n\n      - name: Unit Tests - always publish JUnit results\n        id: junit\n        if: ${{ always() && (steps.parallel.outcome == 'success' || steps.parallel.outcome == 'failure' || steps.parallel.outcome == 'cancelled') }}\n        uses: dorny/test-reporter@v2\n        with:\n          name: Unit Tests\n          path: build/test-results/test/*.xml\n          reporter: java-junit\n          fail-on-empty: 'true'\n          fail-on-error: 'false'\n\n      - name: Tests - await Lint and propagate its result\n        if: ${{ always() && steps.parallel.outputs.lint_started == 'true' }}\n        shell: bash\n        run: |\n          docker exec \"$CI_CONTAINER\" sh -ec '\n            while [ ! -s /tmp/gha-lint.exit ]; do\n              sleep 1\n            done\n            cat /tmp/gha-lint.log\n            status=\"$(cat /tmp/gha-lint.exit)\"\n            exit \"$status\"\n          '\n\n      - name: Publish Artifacts\n        if: ${{ success() && github.ref == 'refs/heads/main' }}\n        shell: bash\n        run: echo 'Publishing artifacts (placeholder)'\n\n      - name: Always archive JAR artifacts\n        if: ${{ always() }}\n        uses: actions/upload-artifact@v4\n        with:\n          name: build-jars\n          path: build/libs/*.jar\n          if-no-files-found: error\n\n      - name: Apply final JUnit test-failure status\n        if: ${{ always() && steps.junit.outputs.failed != '' && steps.junit.outputs.failed != '0' }}\n        shell: bash\n        run: |\n          echo '::error::JUnit reported failing tests (Jenkins UNSTABLE equivalent).'\n          exit 1\n\n      - name: Always remove Docker agent\n        if: ${{ always() && steps.agent.outputs.id != '' }}\n        shell: bash\n        run: docker rm --force --volumes \"$CI_CONTAINER\"\n",
+  "assumptions": [
+    "The source specifies no triggers. workflow_dispatch is an evaluation-only choice, not an inferred Jenkins trigger.",
+    "ubuntu-24.04 is an assumed Linux runner with Bash and a usable Docker CLI/daemon. Its host tooling is not claimed to match Jenkins; Docker image pulls and Alpine package downloads require network access.",
+    "checkout scm is mapped to the current GitHub repository at the dispatch revision, with full history. Jenkins-specific SCM credentials, extensions, and checkout configuration are unspecified.",
+    "Checkout, reporting, and artifact actions run on the Ubuntu host rather than inside Alpine, avoiding JavaScript-action runtime compatibility problems. All source shell commands run in the specified Alpine container as root.",
+    "GitHub has no Jenkins UNSTABLE job conclusion. Reported test failures create a failing test check and ultimately fail the job, but final job failure is deferred until after publishing and artifact collection so XML test failures alone do not suppress subsequent stages. Missing or malformed reports and nonzero Gradle exits fail immediately.",
+    "dorny/test-reporter supplies GitHub check-based test reporting, not Jenkins JUnit history, trends, or its exact reporting UI. checks: write must be permitted by the repository.",
+    "GitHub log timestamps replace Jenkins timestamps() formatting. Lint output is buffered inside the container and emitted when its branch is awaited, so its displayed timestamps reflect collection rather than original emission.",
+    "GitHub artifact storage does not implement Jenkins fingerprinting or its cross-build provenance relationships. The JARs are archived, but fingerprint: true has no equivalent here."
+  ],
+  "behavior_mapping": [
+    {
+      "source": "Docker agent uses gradle:8.7.0-jdk17-alpine with args '-u root'.",
+      "target": "Start Docker agent creates that exact image with --user root and a mounted /workspace; subsequent source commands use docker exec in the same container."
+    },
+    {
+      "source": "APP_ENV = \"ci\" applies throughout the pipeline.",
+      "target": "Workflow env.APP_ENV is ci and --env APP_ENV passes it into the persistent container."
+    },
+    {
+      "source": "timestamps() annotates console output.",
+      "target": "GitHub Actions timestamped log metadata replaces Jenkins formatting, with buffered Lint timing differences disclosed in assumptions."
+    },
+    {
+      "source": "Checkout precedes Prepare Tools, which runs apk add --no-cache bash git jq and then jq --version.",
+      "target": "Checkout and Prepare Tools retain that order and both preparation commands; container startup is infrastructure between them."
+    },
+    {
+      "source": "Build runs ./gradlew --no-daemon clean build before Tests.",
+      "target": "Build runs the identical command; normal step success gating prevents Tests from starting after an earlier failure."
+    },
+    {
+      "source": "Unit Tests and Lint run concurrently, potentially sharing the Jenkins workspace.",
+      "target": "The Tests step starts detached ./gradlew --no-daemon check and immediately runs ./gradlew --no-daemon test in the same container and workspace. Build outputs remain directly available; no separate-job workspace transfer is assumed."
+    },
+    {
+      "source": "Unit Tests always publishes junit 'build/test-results/test/*.xml', including when its command fails.",
+      "target": "The JUnit reporting action runs with always() when the Tests step was attempted, immediately after the Unit Tests command, while Lint may still run. It retains the literal glob, rejects missing reports, and records test failures."
+    },
+    {
+      "source": "Parallel branches are awaited without a specified fail-fast option; either shell failure prevents normal subsequent stages.",
+      "target": "Await Lint runs even after Unit Tests or report-processing failure and propagates the captured check exit code. Publish requires success of all preceding steps."
+    },
+    {
+      "source": "Publish Artifacts runs only on main and echoes a placeholder message.",
+      "target": "Publish Artifacts additionally requires github.ref == 'refs/heads/main' and preserves the exact echo command. No real publishing is invented."
+    },
+    {
+      "source": "Pipeline post always archives 'build/libs/*.jar' with fingerprinting; missing artifacts fail by default.",
+      "target": "Always archive JAR artifacts uses always(), the literal build/libs/*.jar glob, and if-no-files-found: error. Fingerprinting is explicitly unsupported."
+    }
+  ],
+  "disputes": []
+}

@@ -1,0 +1,156 @@
+name: Jenkinsfile conversion
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  APP_ENV: ci
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    outputs:
+      build_artifact_url: ${{ steps.upload_build.outputs.artifact-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare Tools
+        run: apk add --no-cache bash git jq
+        shell: sh
+      - name: Verify jq
+        run: jq --version
+        shell: sh
+      - name: Build
+        run: ./gradlew --no-daemon clean build
+        shell: sh
+      - name: Transfer build outputs to dependent jobs
+        id: upload_build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: build/
+          if-no-files-found: warn
+
+  unit-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    outputs:
+      jars_artifact_url: ${{ steps.upload_unit_jars.outputs.artifact-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare Tools
+        run: apk add --no-cache bash git jq
+        shell: sh
+      - name: Restore build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: build
+      - name: Unit Tests
+        id: unit_tests
+        run: ./gradlew --no-daemon test
+        shell: sh
+      - name: Publish JUnit results
+        if: ${{ always() && steps.unit_tests.outcome != 'skipped' }}
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: build/test-results/test/*.xml
+          fail_on_failure: true
+          require_tests: true
+      - name: Transfer JAR outputs for final archive
+        id: upload_unit_jars
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-jars
+          path: build/libs/
+          if-no-files-found: warn
+
+  lint:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    outputs:
+      jars_artifact_url: ${{ steps.upload_lint_jars.outputs.artifact-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare Tools
+        run: apk add --no-cache bash git jq
+        shell: sh
+      - name: Restore build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: build
+      - name: Lint
+        run: ./gradlew --no-daemon check
+        shell: sh
+      - name: Transfer JAR outputs for final archive
+        id: upload_lint_jars
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-jars
+          path: build/libs/
+          if-no-files-found: warn
+
+  publish-artifacts:
+    needs: [unit-tests, lint]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Publish Artifacts
+        run: echo 'Publishing artifacts (placeholder)'
+        shell: sh
+
+  archive-artifacts:
+    needs: [build, unit-tests, lint, publish-artifacts]
+    if: always()
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Restore build outputs when available
+        if: ${{ always() && needs.build.outputs.build_artifact_url != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: build
+      - name: Collect unit-test JAR outputs when available
+        if: ${{ always() && needs.unit-tests.outputs.jars_artifact_url != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-jars
+          path: build/libs
+      - name: Collect lint JAR outputs when available
+        if: ${{ always() && needs.lint.outputs.jars_artifact_url != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: lint-jars
+          path: build/libs
+      - name: Archive JAR artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archived-jars
+          path: build/libs/*.jar
+          if-no-files-found: error

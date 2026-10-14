@@ -1,0 +1,40 @@
+{
+  "status": "accepted_source_only",
+  "assurance": "Source-only evaluation, not verified Jenkins/GitHub Actions runtime equivalence. The reviewer and behavior mapping are LLM judgments, not deterministic proof.",
+  "source_sha256": "e5d3a05df2f898283d07be99d4af2440486c6e42d5cc56aa02c4d76c79b143b9",
+  "rounds": [
+    {
+      "number": 1,
+      "checks": [
+        {
+          "name": "yaml",
+          "status": "pass",
+          "detail": "Parsed YAML; duplicate keys rejected."
+        },
+        {
+          "name": "workflow_structure",
+          "status": "pass",
+          "detail": "Basic job/step structure and dependencies checked."
+        },
+        {
+          "name": "actionlint",
+          "status": "pass",
+          "detail": "actionlint exit code: 0"
+        }
+      ],
+      "review": {
+        "verdict": "approve",
+        "findings": [],
+        "limitations": [
+          "This is a source-only approval, not runtime equivalence. No tools or code were executed, and the supplied static-check results were not independently verified.",
+          "Repository contents, Gradle wrapper executability, JDK/toolchain compatibility, and Jenkins SCM configuration cannot be established from the supplied artifacts.",
+          "JUnit status/reporting UX and artifact fingerprinting/retention differences are explicitly disclosed and accepted for this proposal.",
+          "Actual third-party action behavior, report/artifact availability, and collection after runner loss or forced termination remain unverified."
+        ]
+      }
+    }
+  ],
+  "accepted_workflow": "tests/evaluations/basic/json/workflow.yml",
+  "last_candidate": "tests/evaluations/basic/json/round-01/workflow.yml",
+  "error": null
+}

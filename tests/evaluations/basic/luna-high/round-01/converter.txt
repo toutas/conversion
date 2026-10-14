@@ -1,0 +1,39 @@
+{
+  "workflow_yaml": "name: Jenkinsfile conversion\n\non:\n  workflow_dispatch:\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n      APP_ENV: ci\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Build\n        run: ./gradlew --no-daemon clean build\n\n      - name: Test\n        id: run_tests\n        run: ./gradlew --no-daemon test\n\n      - name: Publish JUnit results\n        if: ${{ always() && steps.run_tests.outcome != 'skipped' }}\n        uses: dorny/test-reporter@v2\n        with:\n          name: JUnit Test Results\n          path: build/test-results/test/*.xml\n          reporter: java-junit\n          fail-on-error: 'true'\n\n      - name: Archive build artifacts\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: build-artifacts\n          path: build/libs/*.jar\n          if-no-files-found: error\n",
+  "assumptions": [
+    "The source specifies no trigger, so workflow_dispatch is an evaluation-only trigger assumption.",
+    "The source does not specify an agent platform or runner tooling; ubuntu-latest is a reasonable Linux runner assumption and is not claimed to match Jenkins.",
+    "The checkout action represents the explicit checkout scm step and checks out the workflow repository's source.",
+    "The sequential stages run in one GitHub Actions job so they share a workspace; the source defines no parallel stages or cross-job artifact transfer.",
+    "Jenkins fingerprinting has no direct equivalent in this workflow; the JARs are uploaded as an artifact without fingerprint tracking.",
+    "JUnit results are reported with GitHub checks/annotations and a summary rather than Jenkins' JUnit UI. The Gradle test command retains its failure status, and the report step runs after it even when it fails; missing report files are configured to fail.",
+    "The selected action versions and Ubuntu runner image are conversion choices not specified by the source."
+  ],
+  "behavior_mapping": [
+    {
+      "source": "Declarative pipeline environment sets APP_ENV to ci.",
+      "target": "jobs.build.env.APP_ENV"
+    },
+    {
+      "source": "Checkout stage runs checkout scm.",
+      "target": "jobs.build.steps[0] uses actions/checkout@v4"
+    },
+    {
+      "source": "Build stage runs ./gradlew --no-daemon clean build.",
+      "target": "jobs.build.steps[1].run"
+    },
+    {
+      "source": "Test stage runs ./gradlew --no-daemon test after Build.",
+      "target": "jobs.build.steps[2].run; steps execute sequentially in the same job"
+    },
+    {
+      "source": "Test stage always publishes build/test-results/test/*.xml through Jenkins junit, including after test-command failure.",
+      "target": "jobs.build.steps[3] uses dorny/test-reporter with the literal glob, runs after the test step unless that step was skipped, and fails on reporting errors"
+    },
+    {
+      "source": "Pipeline post always archives build/libs/*.jar, including after earlier stage failures; fingerprinting is enabled.",
+      "target": "jobs.build.steps[4] uploads the literal glob with if: always() and if-no-files-found: error; fingerprinting is unsupported"
+    }
+  ],
+  "disputes": []
+}

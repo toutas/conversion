@@ -1,0 +1,108 @@
+name: Gradle CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  APP_ENV: ci
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-24.04
+    env:
+      CI_CONTAINER: jenkins-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start Docker agent
+        id: agent
+        shell: bash
+        run: |
+          container_id="$(docker run --detach \
+            --name "$CI_CONTAINER" \
+            --user root \
+            --workdir /workspace \
+            --env APP_ENV \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --entrypoint /bin/sh \
+            gradle:8.7.0-jdk17-alpine \
+            -c 'exec tail -f /dev/null')"
+          printf 'id=%s\n' "$container_id" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Tools
+        shell: bash
+        run: |
+          docker exec "$CI_CONTAINER" sh -c 'apk add --no-cache bash git jq'
+          docker exec "$CI_CONTAINER" sh -c 'jq --version'
+
+      - name: Build
+        shell: bash
+        run: docker exec "$CI_CONTAINER" sh -c './gradlew --no-daemon clean build'
+
+      - name: Tests - start Lint and run Unit Tests in parallel
+        id: parallel
+        shell: bash
+        run: |
+          docker exec --detach "$CI_CONTAINER" sh -c '
+            ./gradlew --no-daemon check > /tmp/gha-lint.log 2>&1
+            status=$?
+            printf "%s\n" "$status" > /tmp/gha-lint.exit
+          '
+          printf 'lint_started=true\n' >> "$GITHUB_OUTPUT"
+          docker exec "$CI_CONTAINER" sh -c './gradlew --no-daemon test'
+
+      - name: Unit Tests - always publish JUnit results
+        id: junit
+        if: ${{ always() && (steps.parallel.outcome == 'success' || steps.parallel.outcome == 'failure' || steps.parallel.outcome == 'cancelled') }}
+        uses: dorny/test-reporter@v2
+        with:
+          name: Unit Tests
+          path: build/test-results/test/*.xml
+          reporter: java-junit
+          fail-on-empty: 'true'
+          fail-on-error: 'false'
+
+      - name: Tests - await Lint and propagate its result
+        if: ${{ always() && steps.parallel.outputs.lint_started == 'true' }}
+        shell: bash
+        run: |
+          docker exec "$CI_CONTAINER" sh -ec '
+            while [ ! -s /tmp/gha-lint.exit ]; do
+              sleep 1
+            done
+            cat /tmp/gha-lint.log
+            status="$(cat /tmp/gha-lint.exit)"
+            exit "$status"
+          '
+
+      - name: Publish Artifacts
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: echo 'Publishing artifacts (placeholder)'
+
+      - name: Always archive JAR artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-jars
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Apply final JUnit test-failure status
+        if: ${{ always() && steps.junit.outputs.failed != '' && steps.junit.outputs.failed != '0' }}
+        shell: bash
+        run: |
+          echo '::error::JUnit reported failing tests (Jenkins UNSTABLE equivalent).'
+          exit 1
+
+      - name: Always remove Docker agent
+        if: ${{ always() && steps.agent.outputs.id != '' }}
+        shell: bash
+        run: docker rm --force --volumes "$CI_CONTAINER"

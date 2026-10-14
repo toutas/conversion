@@ -1,0 +1,95 @@
+{
+  "status": "accepted_source_only",
+  "assurance": "Source-only evaluation, not verified Jenkins/GitHub Actions runtime equivalence. The reviewer and behavior mapping are LLM judgments, not deterministic proof.",
+  "source_sha256": "3406c6bbaf553aeb47a0ffe0db012668efcebf861c951ba5c85ff21c0e72f5ef",
+  "rounds": [
+    {
+      "number": 1,
+      "checks": [
+        {
+          "name": "yaml",
+          "status": "pass",
+          "detail": "Parsed YAML; duplicate keys rejected."
+        },
+        {
+          "name": "workflow_structure",
+          "status": "pass",
+          "detail": "Basic job/step structure and dependencies checked."
+        },
+        {
+          "name": "actionlint",
+          "status": "fail",
+          "detail": "ignore/evaluation/example-2-luna-high/round-01/workflow.yml:107:11: input \"if-no-artifact-found\" is not defined in action \"actions/download-artifact@v4\". available inputs are \"github-token\", \"merge-multiple\", \"name\", \"path\", \"pattern\", \"repository\", \"run-id\" [action]\n    |\n107 |           if-no-artifact-found: warn\n    |           ^~~~~~~~~~~~~~~~~~~~~"
+        }
+      ],
+      "review": null
+    },
+    {
+      "number": 2,
+      "checks": [
+        {
+          "name": "yaml",
+          "status": "pass",
+          "detail": "Parsed YAML; duplicate keys rejected."
+        },
+        {
+          "name": "workflow_structure",
+          "status": "pass",
+          "detail": "Basic job/step structure and dependencies checked."
+        },
+        {
+          "name": "actionlint",
+          "status": "pass",
+          "detail": "actionlint exit code: 0"
+        }
+      ],
+      "review": {
+        "verdict": "request_changes",
+        "findings": [
+          {
+            "id": "alpine-javascript-action-runtime",
+            "severity": "blocker",
+            "message": "The jobs run inside an Alpine container but invoke JavaScript actions, including checkout before any setup step. Alpine's musl environment may not support the runner's Node.js action runtime, so checkout and artifact/report actions may fail before the job can complete. The listed tool installation does not address this runtime prerequisite.",
+            "source_evidence": "The workflow sets `container.image: gradle:8.7.0-jdk17-alpine` and uses `actions/checkout@v4`, `actions/download-artifact@v4`, `actions/upload-artifact@v4`, and `mikepenz/action-junit-report@v5`. `Prepare Tools` installs only `bash git jq`, and it runs after checkout.",
+            "requested_change": "Use a container compatible with the GitHub Actions JavaScript runtime, or otherwise ensure that runtime compatibility is established before any JavaScript action runs, including checkout. Do not rely on the Gradle container working with these actions without evidence."
+          }
+        ],
+        "limitations": [
+          "This is a source-only assessment; it cannot establish runtime compatibility or verify that the workflow succeeds on GitHub-hosted runners."
+        ]
+      }
+    },
+    {
+      "number": 3,
+      "checks": [
+        {
+          "name": "yaml",
+          "status": "pass",
+          "detail": "Parsed YAML; duplicate keys rejected."
+        },
+        {
+          "name": "workflow_structure",
+          "status": "pass",
+          "detail": "Basic job/step structure and dependencies checked."
+        },
+        {
+          "name": "actionlint",
+          "status": "pass",
+          "detail": "actionlint exit code: 0"
+        }
+      ],
+      "review": {
+        "verdict": "approve",
+        "findings": [],
+        "limitations": [
+          "This is a source-only assessment; it cannot establish runtime success on GitHub-hosted runners or verify Docker availability.",
+          "The conversion discloses that GitHub artifact storage does not reproduce Jenkins fingerprinting, JUnit reporting uses GitHub checks rather than the Jenkins UI, and Jenkins timestamp behavior is not preserved.",
+          "The isolated GitHub job workspaces cannot reproduce possible shared-workspace races between Jenkins parallel stages."
+        ]
+      }
+    }
+  ],
+  "accepted_workflow": "tests/evaluations/container-parallel/luna-high/workflow.yml",
+  "last_candidate": "tests/evaluations/container-parallel/luna-high/round-03/workflow.yml",
+  "error": null
+}

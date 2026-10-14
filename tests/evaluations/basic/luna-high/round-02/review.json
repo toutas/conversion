@@ -1,0 +1,8 @@
+{
+  "verdict": "approve",
+  "findings": [],
+  "limitations": [
+    "Source-only review cannot establish the Jenkins agent's installed JDK or other tooling, or verify runtime behavior of the Ubuntu runner and external actions.",
+    "The workflow discloses that GitHub checks reporting differs from Jenkins JUnit reporting and that uploaded artifacts do not provide Jenkins fingerprinting."
+  ]
+}

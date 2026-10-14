@@ -1,0 +1,88 @@
+{ "workflow_yaml": "name: Gradle CI\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents:
+read\n\nenv:\n  APP_ENV: "ci"\n\njobs:\n  ci:\n    runs-on: ubuntu-latest\n    steps:\n      - name:
+Checkout\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      -
+name: Build\n        run: ./gradlew --no-daemon clean build\n\n      - name: Test\n        id:
+test\n        run: ./gradlew --no-daemon test\n\n      - name: Publish JUnit results\n        if:
+${{ always() && (steps.test.outcome == 'success' || steps.test.outcome == 'failure' ||
+steps.test.outcome == 'cancelled') }}\n        shell: bash\n        run: |\n          python3 -
+<<'PY'\n          import glob\n          import os\n          import sys\n          import
+xml.etree.ElementTree as ET\n\n          reports =
+sorted(glob.glob("build/test-results/test/.xml"))\n          if not reports:\n
+print("::error::No JUnit reports found at build/test-results/test/.xml")\n
+sys.exit(1)\n\n          total = failures = errors = skipped = 0\n          for path in reports:\n
+            try:\n                  root = ET.parse(path).getroot()\n              except
+(ET.ParseError, OSError) as exc:\n                  print(f"::error::Cannot read JUnit report
+{path}: {exc}")\n                  sys.exit(1)\n              for case in root.iter("testcase"):\n
+                total += 1\n                  failures += case.find("failure") is not None\n
+          errors += case.find("error") is not None\n                  skipped +=
+case.find("skipped") is not None\n\n          with open(os.environ["GITHUB_STEP_SUMMARY"], "a",
+encoding="utf-8") as summary:\n              print("## JUnit results", file=summary)\n
+print("", file=summary)\n              print("| Tests | Failures | Errors | Skipped |",
+file=summary)\n              print("| --- | --- | --- | --- |", file=summary)\n
+print(f"| {total} | {failures} | {errors} | {skipped} |", file=summary)\n\n          if total ==
+0:\n              print("::error::JUnit reports contain no test cases.")\n
+sys.exit(1)\n          if failures or errors:\n              print(f"::error::JUnit reports contain
+{failures} failures and {errors} errors.")\n              sys.exit(1)\n          PY\n\n      - name:
+Archive JUnit XML\n        if: ${{ always() && (steps.test.outcome == 'success' ||
+steps.test.outcome == 'failure' || steps.test.outcome == 'cancelled') }}\n        uses:
+actions/upload-artifact@v4\n        with:\n          name: junit-results\n          path:
+build/test-results/test/.xml\n          if-no-files-found: error\n\n      - name: Archive JARs\n
+    if: ${{ always() }}\n        uses: actions/upload-artifact@v4\n        with:\n          name:
+build-jars\n          path: build/libs/.jar\n          if-no-files-found: error\n", "assumptions": [
+    "The source specifies no triggers. workflow_dispatch is an evaluation-only assumption, not a
+reconstruction of Jenkins scheduling or SCM triggers.",
+    "ubuntu-latest is the assumed Linux runner. Its installed Java and Python 3 must support the
+project and reporting script; Jenkins agent tooling and versions are unspecified, and toolchain
+equivalence is unverified.",
+    "checkout scm is mapped to the workflow repository and selected ref. Full history is requested
+as an explicit checkout choice; unspecified Jenkins SCM configuration, credentials, extensions, and
+submodule settings are not reconstructed.",
+    "The reporting script expects standard Gradle JUnit XML with testcase elements. It rejects
+missing, unreadable, malformed, or test-case-empty reports and fails when failure or error elements
+are present.",
+    "Jenkins JUnit can mark a build UNSTABLE for reported test failures. GitHub Actions has no
+equivalent status, so these failures make the reporting step and job fail. The step summary and
+downloadable XML do not reproduce Jenkins per-test reporting, history, or trends.",
+    "Jenkins fingerprinting is unsupported by this workflow. Uploading JARs retains the files but
+does not reproduce Jenkins fingerprint-based artifact provenance and cross-build tracking.",
+    "Failure-time collection uses always() and remains best-effort during cancellation or runner
+loss; it cannot execute after the runner has terminated." ], "behavior_mapping": [
+    {
+      "source": "agent any with sequential Checkout, Build, and Test stages using one workspace",
+      "target": "jobs.ci uses one runner and workspace for all stages, preserving order and avoiding
+cross-job output-transfer assumptions."
+    },
+    {
+      "source": "environment APP_ENV = "ci"",
+      "target": "Workflow-level env.APP_ENV is inherited by all steps."
+    },
+    {
+      "source": "Checkout: checkout scm",
+      "target": "Checkout step uses actions/checkout@v4."
+    },
+    {
+      "source": "Build: sh './gradlew --no-daemon clean build'",
+      "target": "Build step executes the exact command. Failure prevents the ordinary Test step from
+running."
+    },
+    {
+      "source": "Test: sh './gradlew --no-daemon test'",
+      "target": "Test step executes the exact command without suppressing failure."
+    },
+    {
+      "source": "Test post always: junit 'build/test-results/test/.xml'",
+      "target": "Publish JUnit results and Archive JUnit XML run after an executed Test step,
+including command failure, but not when Test was skipped because an earlier stage failed. XML is
+parsed for test status, summarized, and retained even when reporting fails."
+    },
+    {
+      "source": "Pipeline post always: archiveArtifacts artifacts: 'build/libs/.jar'",
+      "target": "Archive JARs uses always() independently of checkout, build, test, or reporting
+success. Missing matching files cause an error rather than silently succeeding."
+    },
+    {
+      "source": "archiveArtifacts fingerprint: true",
+      "target": "JAR files are uploaded as build-jars; unsupported Jenkins fingerprint tracking is
+explicitly documented in assumptions."
+    } ], "disputes": []
+}

@@ -1,0 +1,15 @@
+{
+  "verdict": "request_changes",
+  "findings": [
+    {
+      "id": "reporter-missing-checks-permission",
+      "severity": "blocker",
+      "message": "The workflow says JUnit results are reported through GitHub checks, but it does not grant the test-reporter permission to write checks. On repositories with read-only default token permissions, the reporting step can fail even when the tests pass.",
+      "source_evidence": "The workflow uses `dorny/test-reporter@v2` with `reporter: java-junit` and discloses GitHub checks/annotations reporting, but declares no `permissions`.",
+      "requested_change": "Declare the minimum required `GITHUB_TOKEN` permissions for the reporter, including `checks: write`; retain `contents: read` for checkout if setting explicit permissions."
+    }
+  ],
+  "limitations": [
+    "Static review cannot establish the Jenkins agent's installed JDK or other tooling, or confirm runtime behavior of the selected runner image and external actions."
+  ]
+}

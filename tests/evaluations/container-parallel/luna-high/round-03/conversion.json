@@ -1,0 +1,55 @@
+{
+  "workflow_yaml": "name: Jenkinsfile conversion\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  checks: write\n\nenv:\n  APP_ENV: ci\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      build_artifact_url: ${{ steps.upload_build.outputs.artifact-url }}\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Prepare Tools and Build\n        run: |\n          docker run --rm --user root \\\n            -e APP_ENV \\\n            -v \"$GITHUB_WORKSPACE:/workspace\" \\\n            -w /workspace \\\n            --entrypoint sh \\\n            gradle:8.7.0-jdk17-alpine \\\n            -c 'apk add --no-cache bash git jq && jq --version && ./gradlew --no-daemon clean build'\n      - name: Transfer build outputs to dependent jobs\n        id: upload_build\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: build-output\n          path: build/\n          if-no-files-found: warn\n\n  unit-tests:\n    needs: build\n    runs-on: ubuntu-latest\n    outputs:\n      jars_artifact_url: ${{ steps.upload_unit_jars.outputs.artifact-url }}\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Restore build outputs\n        uses: actions/download-artifact@v4\n        with:\n          name: build-output\n          path: build\n      - name: Unit Tests\n        id: unit_tests\n        run: |\n          docker run --rm --user root \\\n            -e APP_ENV \\\n            -v \"$GITHUB_WORKSPACE:/workspace\" \\\n            -w /workspace \\\n            --entrypoint sh \\\n            gradle:8.7.0-jdk17-alpine \\\n            -c 'apk add --no-cache bash git jq && ./gradlew --no-daemon test'\n      - name: Publish JUnit results\n        if: ${{ always() && steps.unit_tests.outcome != 'skipped' }}\n        uses: mikepenz/action-junit-report@v5\n        with:\n          report_paths: build/test-results/test/*.xml\n          fail_on_failure: true\n          require_tests: true\n      - name: Transfer JAR outputs for final archive\n        id: upload_unit_jars\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: unit-jars\n          path: build/libs/\n          if-no-files-found: warn\n\n  lint:\n    needs: build\n    runs-on: ubuntu-latest\n    outputs:\n      jars_artifact_url: ${{ steps.upload_lint_jars.outputs.artifact-url }}\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Restore build outputs\n        uses: actions/download-artifact@v4\n        with:\n          name: build-output\n          path: build\n      - name: Lint\n        run: |\n          docker run --rm --user root \\\n            -e APP_ENV \\\n            -v \"$GITHUB_WORKSPACE:/workspace\" \\\n            -w /workspace \\\n            --entrypoint sh \\\n            gradle:8.7.0-jdk17-alpine \\\n            -c 'apk add --no-cache bash git jq && ./gradlew --no-daemon check'\n      - name: Transfer JAR outputs for final archive\n        id: upload_lint_jars\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: lint-jars\n          path: build/libs/\n          if-no-files-found: warn\n\n  publish-artifacts:\n    needs: [unit-tests, lint]\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    steps:\n      - name: Publish Artifacts\n        run: |\n          docker run --rm --user root \\\n            -e APP_ENV \\\n            --entrypoint sh \\\n            gradle:8.7.0-jdk17-alpine \\\n            -c \"echo 'Publishing artifacts (placeholder)'\"\n\n  archive-artifacts:\n    needs: [build, unit-tests, lint, publish-artifacts]\n    if: always()\n    runs-on: ubuntu-latest\n    steps:\n      - name: Restore build outputs when available\n        if: ${{ always() && needs.build.outputs.build_artifact_url != '' }}\n        uses: actions/download-artifact@v4\n        with:\n          name: build-output\n          path: build\n      - name: Collect unit-test JAR outputs when available\n        if: ${{ always() && needs.unit-tests.outputs.jars_artifact_url != '' }}\n        uses: actions/download-artifact@v4\n        with:\n          name: unit-jars\n          path: build/libs\n      - name: Collect lint JAR outputs when available\n        if: ${{ always() && needs.lint.outputs.jars_artifact_url != '' }}\n        uses: actions/download-artifact@v4\n        with:\n          name: lint-jars\n          path: build/libs\n      - name: Archive JAR artifacts\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: archived-jars\n          path: build/libs/*.jar\n          if-no-files-found: error\n",
+  "assumptions": [
+    "No trigger is specified, so workflow_dispatch is used for evaluation; the main-branch condition applies to the ref selected for dispatch.",
+    "ubuntu-latest is an assumed Linux host runner, and Docker availability is assumed. Workflow actions run on the host; source commands run inside the specified Gradle Alpine image via docker run, avoiding reliance on JavaScript action runtime compatibility inside Alpine.",
+    "GitHub jobs have separate workspaces. The Build job transfers build/ to Unit Tests and Lint; those parallel jobs transfer any available build/libs/ contents for final collection. This cannot reproduce possible shared-workspace races between Jenkins parallel stages.",
+    "APK tools are installed in each command container because each docker run is ephemeral. The original jq version check runs once before the build command.",
+    "JUnit results are published to GitHub checks rather than the Jenkins JUnit UI. The report step runs after the test command, preserves the literal report glob, fails on test failures, and requires reports; the reporting UX differs from Jenkins.",
+    "The final artifact upload preserves the literal build/libs/*.jar glob and fails when no matching JARs exist. Intermediate transfers tolerate missing files so failure-time collection can proceed. GitHub artifact storage does not provide Jenkins fingerprinting.",
+    "Jenkins timestamps() has no exact equivalent configured, so its timestamp formatting and behavior are not preserved."
+  ],
+  "behavior_mapping": [
+    {
+      "source": "Docker agent uses gradle:8.7.0-jdk17-alpine with args '-u root'.",
+      "target": "Build, Unit Tests, Lint, and Publish Artifacts commands use docker run with the same image and --user root; actions run on the ubuntu-latest host."
+    },
+    {
+      "source": "Global environment sets APP_ENV to ci.",
+      "target": "Workflow-level env.APP_ENV; Docker command containers receive it with -e APP_ENV."
+    },
+    {
+      "source": "Checkout scm precedes the other stages.",
+      "target": "actions/checkout@v4 runs before commands in Build, Unit Tests, and Lint; separate checkouts account for isolated GitHub job workspaces."
+    },
+    {
+      "source": "Prepare Tools installs bash, git, and jq with apk, then runs jq --version.",
+      "target": "Build's Prepare Tools and Build command installs the packages, verifies jq, then builds; Unit Tests and Lint also install the packages in their ephemeral command containers."
+    },
+    {
+      "source": "Build runs ./gradlew --no-daemon clean build.",
+      "target": "Build job's Prepare Tools and Build command runs the original Gradle command and uploads build/ for dependent jobs."
+    },
+    {
+      "source": "Unit Tests and Lint run in parallel after Build.",
+      "target": "unit-tests and lint both need build and can run concurrently; each downloads build-output and runs its original Gradle command."
+    },
+    {
+      "source": "Unit Tests always publishes build/test-results/test/*.xml, including after a test-command failure.",
+      "target": "Publish JUnit results runs after the Unit Tests command even on failure, uses the literal glob, and fails on test failures or missing reports."
+    },
+    {
+      "source": "Publish Artifacts runs only on branch main and echoes the placeholder text.",
+      "target": "publish-artifacts is guarded by refs/heads/main and runs the original echo in the specified Gradle image after Unit Tests and Lint succeed."
+    },
+    {
+      "source": "Pipeline post always archives build/libs/*.jar with fingerprinting enabled.",
+      "target": "archive-artifacts runs after all stage jobs regardless of outcome, collects available JAR outputs, and uploads the literal glob with missing files treated as an error; fingerprinting is unsupported."
+    },
+    {
+      "source": "Pipeline timestamps() option.",
+      "target": "No exact GitHub Actions equivalent is configured; timestamp formatting and behavior are not preserved."
+    }
+  ],
+  "disputes": []
+}

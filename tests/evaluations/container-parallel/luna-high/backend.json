@@ -1,0 +1,80 @@
+{
+  "backend": "copilot_cli",
+  "converter_model_requested": "gpt-6-luna",
+  "reviewer_model_requested": "gpt-6-luna",
+  "reasoning_effort_requested": "high",
+  "max_rounds": 3,
+  "timeout_per_call_seconds": 360.0,
+  "completed_calls": [
+    {
+      "role": "converter",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 104693,
+        "sessionDurationMs": 105986,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    },
+    {
+      "role": "converter",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 103812,
+        "sessionDurationMs": 105001,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    },
+    {
+      "role": "reviewer",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 62558,
+        "sessionDurationMs": 64126,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    },
+    {
+      "role": "converter",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 66741,
+        "sessionDurationMs": 67989,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    },
+    {
+      "role": "reviewer",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 35766,
+        "sessionDurationMs": 37112,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    }
+  ]
+}
