@@ -1,0 +1,2 @@
+keyring>=25.6,<26; sys_platform == "linux"
+PyYAML>=6.0.2,<7

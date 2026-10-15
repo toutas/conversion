@@ -1,6 +1,6 @@
 {
   "model": "gpt-6.1-sol",
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "contextTier": "default",
   "allowedUrls": [],
   "footer": {
@@ -24,38 +24,38 @@
   "subagents": {
     "agents": {
       "general-purpose": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
-        "contextTier": "default"
-      },
-      "security-review": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
-        "contextTier": "default"
-      },
-      "explore": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
-        "contextTier": "default"
-      },
-      "research": {
-        "model": "gpt-6-luna",
+        "model": "gpt-6.1-sol",
         "effortLevel": "medium",
         "contextTier": "default"
       },
+      "security-review": {
+        "model": "gpt-6.1-sol",
+        "effortLevel": "medium",
+        "contextTier": "default"
+      },
+      "explore": {
+        "model": "gpt-6.1-sol",
+        "effortLevel": "medium",
+        "contextTier": "default"
+      },
+      "research": {
+        "model": "gpt-6.1-sol",
+        "effortLevel": "low",
+        "contextTier": "default"
+      },
       "code-review": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
+        "model": "gpt-6.1-sol",
+        "effortLevel": "medium",
         "contextTier": "default"
       },
       "task": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
+        "model": "gpt-6.1-sol",
+        "effortLevel": "medium",
         "contextTier": "default"
       },
       "rubber-duck": {
-        "model": "gpt-6-luna",
-        "effortLevel": "high",
+        "model": "gpt-6.1-sol",
+        "effortLevel": "medium",
         "contextTier": "default"
       }
     }

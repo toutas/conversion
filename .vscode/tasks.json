@@ -4,19 +4,24 @@
     {
       "label": "Copilot CLI",
       "type": "process",
-      "command": "powershell.exe",
+      "command": "uv",
       "args": [
-        "-NoLogo",
-        "-NoProfile",
-        "-File",
-        "${workspaceFolder}\\.vscode\\start-copilot-sandbox.ps1",
-        "-Workspace",
+        "run",
+        "--project",
         "${workspaceFolder}",
-        "-SandboxName",
+        "python",
+        "-B",
+        "${workspaceFolder}/.vscode/copilot-sandbox/src/start.py",
+        "--workspace",
+        "${workspaceFolder}",
+        "--sandbox-name",
         "copilot-${workspaceFolderBasename}-isolated"
       ],
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "${workspaceFolder}/.venv"
+        }
       },
       "runOptions": {
         "runOn": "folderOpen"

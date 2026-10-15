@@ -1,0 +1,23 @@
+schemaVersion: "2"
+kind: mixin
+name: azure-artifacts-auth
+displayName: Azure Artifacts feed access
+description: Route Azure DevOps bearer authentication through the host proxy.
+requires:
+  agent: copilot
+
+permissions:
+  network:
+    allow:
+      - pkgs.dev.azure.com
+
+credentials:
+  - service: azure-artifacts
+    description: Read packages from the Azure Artifacts feed
+    required: true
+    apiKey:
+      name: AZURE_ARTIFACTS_TOKEN
+      proxyManaged: true
+      inject:
+        - domain: pkgs.dev.azure.com
+          scheme: bearer
