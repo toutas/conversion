@@ -1,0 +1,38 @@
+{
+  "backend": "copilot_cli",
+  "converter_model_requested": "gpt-6-luna",
+  "reviewer_model_requested": "gpt-6-luna",
+  "reasoning_effort_requested": "high",
+  "timeout_per_call_seconds": 360.0,
+  "completed_calls": [
+    {
+      "role": "converter",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 77249,
+        "sessionDurationMs": 81065,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    },
+    {
+      "role": "reviewer",
+      "model": "gpt-6-luna",
+      "usage": {
+        "premiumRequests": 1,
+        "totalApiDurationMs": 31034,
+        "sessionDurationMs": 33693,
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": []
+        }
+      }
+    }
+  ],
+  "max_rounds": 3
+}

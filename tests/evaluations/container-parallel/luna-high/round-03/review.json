@@ -1,9 +1,0 @@
-{
-  "verdict": "approve",
-  "findings": [],
-  "limitations": [
-    "This is a source-only assessment; it cannot establish runtime success on GitHub-hosted runners or verify Docker availability.",
-    "The conversion discloses that GitHub artifact storage does not reproduce Jenkins fingerprinting, JUnit reporting uses GitHub checks rather than the Jenkins UI, and Jenkins timestamp behavior is not preserved.",
-    "The isolated GitHub job workspaces cannot reproduce possible shared-workspace races between Jenkins parallel stages."
-  ]
-}

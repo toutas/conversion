@@ -1,0 +1,41 @@
+{
+  "workflow_yaml": "name: CI\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  checks: write\n\njobs:\n  build-and-test:\n    runs-on: ubuntu-latest\n    env:\n      APP_ENV: ci\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Build\n        id: build\n        run: ./gradlew --no-daemon clean build\n\n      - name: Test\n        run: ./gradlew --no-daemon test\n\n      - name: Publish test results\n        if: ${{ always() && steps.build.outcome == 'success' }}\n        uses: dorny/test-reporter@v2\n        with:\n          name: JUnit test results\n          path: build/test-results/test/*.xml\n          reporter: java-junit\n          fail-on-error: false\n          fail-on-empty: true\n\n      - name: Archive JARs\n        if: ${{ always() }}\n        uses: actions/upload-artifact@v4\n        with:\n          name: build-libs\n          path: build/libs/*.jar\n          if-no-files-found: error\n",
+  "assumptions": [
+    "No triggers are specified, so workflow_dispatch is used as an evaluation-only assumption; it runs against the ref selected when dispatched.",
+    "Jenkins agent any is represented by ubuntu-latest. Its installed tooling, including Java, is not assumed to match the Jenkins agent; no JDK version is specified by the source.",
+    "The sequential stages run in one GitHub Actions job so they share a workspace. No cross-job artifact transfer is needed or assumed.",
+    "The JUnit reporter publishes GitHub check-run reporting rather than Jenkins' test-result UI. Its reporting step does not independently fail on reported test failures; the Gradle test command's exit status remains responsible for failing the job.",
+    "The reporter requires checks: write permission. Jenkins artifact fingerprinting has no direct equivalent in this workflow; the JARs are uploaded as a GitHub Actions artifact instead."
+  ],
+  "behavior_mapping": [
+    {
+      "source": "agent any",
+      "target": "jobs.build-and-test.runs-on uses ubuntu-latest as a Linux runner assumption."
+    },
+    {
+      "source": "environment APP_ENV = \"ci\"",
+      "target": "jobs.build-and-test.env.APP_ENV is set to ci for all steps."
+    },
+    {
+      "source": "Checkout stage: checkout scm",
+      "target": "Checkout step uses actions/checkout@v4 for the dispatch-selected ref."
+    },
+    {
+      "source": "Build stage: sh './gradlew --no-daemon clean build'",
+      "target": "Build step runs the same command before the Test step."
+    },
+    {
+      "source": "Test stage: sh './gradlew --no-daemon test'",
+      "target": "Test step runs the same command after Build; its nonzero exit fails the job."
+    },
+    {
+      "source": "Test stage post always: junit 'build/test-results/test/*.xml'",
+      "target": "Publish test results runs after the test attempt even if it fails, provided Build succeeded; it preserves the literal glob and fails if reports are missing."
+    },
+    {
+      "source": "Pipeline post always: archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true",
+      "target": "Archive JARs runs regardless of earlier step outcomes, preserves the literal glob, and fails if no files match. GitHub artifact upload replaces archiving; fingerprinting is unsupported."
+    }
+  ],
+  "disputes": []
+}

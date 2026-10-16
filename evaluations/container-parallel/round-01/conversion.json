@@ -1,0 +1,59 @@
+{
+  "workflow_yaml": "name: Jenkinsfile conversion\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  checks: write\n\nenv:\n  APP_ENV: ci\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    container:\n      image: gradle:8.7.0-jdk17-alpine\n      options: --user root\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Prepare Tools\n        run: |\n          apk add --no-cache bash git jq\n          jq --version\n        shell: sh\n\n      - name: Build\n        run: ./gradlew --no-daemon clean build\n        shell: sh\n\n      - name: Transfer build workspace\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: build-workspace\n          path: build/\n          if-no-files-found: ignore\n\n  unit_tests:\n    needs: build\n    runs-on: ubuntu-latest\n    container:\n      image: gradle:8.7.0-jdk17-alpine\n      options: --user root\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Download build workspace\n        uses: actions/download-artifact@v4\n        with:\n          name: build-workspace\n          path: build\n\n      - name: Unit Tests\n        run: ./gradlew --no-daemon test\n        shell: sh\n\n      - name: Publish Unit Test Results\n        if: always()\n        uses: dorny/test-reporter@v1\n        with:\n          name: Unit Tests\n          path: build/test-results/test/*.xml\n          reporter: java-junit\n          fail-on-error: true\n          fail-on-empty: true\n\n  lint:\n    needs: build\n    runs-on: ubuntu-latest\n    container:\n      image: gradle:8.7.0-jdk17-alpine\n      options: --user root\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Download build workspace\n        uses: actions/download-artifact@v4\n        with:\n          name: build-workspace\n          path: build\n\n      - name: Lint\n        run: ./gradlew --no-daemon check\n        shell: sh\n\n  publish_artifacts:\n    needs: [build, unit_tests, lint]\n    if: ${{ github.ref == 'refs/heads/main' && success() }}\n    runs-on: ubuntu-latest\n    container:\n      image: gradle:8.7.0-jdk17-alpine\n      options: --user root\n    steps:\n      - name: Publish artifacts (placeholder)\n        run: echo 'Publishing artifacts (placeholder)'\n        shell: sh\n\n  archive_artifacts:\n    needs: [build, unit_tests, lint, publish_artifacts]\n    if: always()\n    runs-on: ubuntu-latest\n    container:\n      image: gradle:8.7.0-jdk17-alpine\n      options: --user root\n    steps:\n      - name: Download build workspace\n        if: always()\n        uses: actions/download-artifact@v4\n        with:\n          name: build-workspace\n          path: build\n\n      - name: Archive JAR artifacts\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: archived-jars\n          path: build/libs/*.jar\n          if-no-files-found: error\n",
+  "assumptions": [
+    "The source specifies no trigger, so workflow_dispatch is an evaluation-only trigger assumption.",
+    "ubuntu-latest is used as the Linux runner assumption; its host tooling is not claimed to match Jenkins.",
+    "GitHub Actions jobs have separate workspaces. The build job transfers its build/ output to the parallel unit-test and lint jobs; those jobs cannot share Jenkins' concurrent workspace, so concurrent filesystem interactions are not reproduced.",
+    "GitHub's workflow logs provide timestamps in the Actions UI, but this is not an exact equivalent of Jenkins timestamps().",
+    "dorny/test-reporter publishes JUnit results as a GitHub check/report rather than Jenkins' test-result UI. It is configured to fail for test failures and missing reports; the source glob is preserved.",
+    "The final artifact upload fails when build/libs/*.jar matches no files, matching Jenkins archiveArtifacts' default missing-artifact failure. GitHub artifact upload has no equivalent to Jenkins fingerprinting.",
+    "The GitHub Actions checkout and artifact/reporting actions are assumed available and compatible with the specified job container."
+  ],
+  "behavior_mapping": [
+    {
+      "source": "Docker agent uses gradle:8.7.0-jdk17-alpine as root for the pipeline.",
+      "target": "Each workflow job declares that image and options: --user root."
+    },
+    {
+      "source": "APP_ENV is set to ci for the pipeline.",
+      "target": "Workflow-level env.APP_ENV."
+    },
+    {
+      "source": "timestamps() option.",
+      "target": "GitHub Actions log timestamps are available in the UI; exact Jenkins formatting is not equivalent."
+    },
+    {
+      "source": "Checkout stage runs checkout scm.",
+      "target": "The build job's Checkout step uses actions/checkout@v4; independent test jobs also check out source into their own workspaces."
+    },
+    {
+      "source": "Prepare Tools installs bash, git, jq with apk and then runs jq --version.",
+      "target": "The Prepare Tools step runs the same commands in order using sh."
+    },
+    {
+      "source": "Build runs ./gradlew --no-daemon clean build.",
+      "target": "The build job's Build step runs the same command before the test jobs."
+    },
+    {
+      "source": "Unit Tests and Lint execute in parallel after Build.",
+      "target": "unit_tests and lint both need build and can run concurrently; each downloads the build workspace artifact into its separate job workspace."
+    },
+    {
+      "source": "Unit Tests runs ./gradlew --no-daemon test and always publishes build/test-results/test/*.xml through junit.",
+      "target": "The Unit Tests step runs the same command; the always-running dorny/test-reporter step consumes the same literal glob, reports JUnit results, and fails on test errors or missing reports."
+    },
+    {
+      "source": "Lint runs ./gradlew --no-daemon check.",
+      "target": "The lint job's Lint step runs the same command."
+    },
+    {
+      "source": "Publish Artifacts runs only on branch main after preceding stages succeed and echoes the placeholder message.",
+      "target": "publish_artifacts is gated on refs/heads/main and successful dependencies, then runs the same echo command."
+    },
+    {
+      "source": "Pipeline post always archives build/libs/*.jar and fingerprints the files.",
+      "target": "The always-running archive_artifacts job downloads build output and uploads build/libs/*.jar with missing files treated as an error; GitHub Actions has no Jenkins fingerprint equivalent."
+    }
+  ],
+  "disputes": []
+}

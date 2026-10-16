@@ -1,0 +1,17 @@
+[
+  {
+    "name": "yaml",
+    "status": "pass",
+    "detail": "Parsed YAML; duplicate keys rejected."
+  },
+  {
+    "name": "workflow_structure",
+    "status": "pass",
+    "detail": "Basic job/step structure and dependencies checked."
+  },
+  {
+    "name": "actionlint",
+    "status": "not_run",
+    "detail": "actionlint is not installed."
+  }
+]

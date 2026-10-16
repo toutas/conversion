@@ -1,0 +1,9 @@
+{
+  "verdict": "approve",
+  "findings": [],
+  "limitations": [
+    "This is a source-only assessment; workflow execution, action compatibility in the container, and Gradle command outcomes were not verified.",
+    "Without the Gradle project configuration, it is not possible to establish whether test or check tasks modify JAR outputs after the build workspace is transferred.",
+    "The declared differences remain: isolated job workspaces do not reproduce Jenkins parallel shared-workspace interactions, Actions reporting and timestamps differ, and artifact uploads do not provide Jenkins fingerprinting."
+  ]
+}

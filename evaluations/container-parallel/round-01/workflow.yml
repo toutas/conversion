@@ -1,0 +1,124 @@
+name: Jenkinsfile conversion
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  APP_ENV: ci
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Tools
+        run: |
+          apk add --no-cache bash git jq
+          jq --version
+        shell: sh
+
+      - name: Build
+        run: ./gradlew --no-daemon clean build
+        shell: sh
+
+      - name: Transfer build workspace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-workspace
+          path: build/
+          if-no-files-found: ignore
+
+  unit_tests:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: build-workspace
+          path: build
+
+      - name: Unit Tests
+        run: ./gradlew --no-daemon test
+        shell: sh
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit Tests
+          path: build/test-results/test/*.xml
+          reporter: java-junit
+          fail-on-error: true
+          fail-on-empty: true
+
+  lint:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: build-workspace
+          path: build
+
+      - name: Lint
+        run: ./gradlew --no-daemon check
+        shell: sh
+
+  publish_artifacts:
+    needs: [build, unit_tests, lint]
+    if: ${{ github.ref == 'refs/heads/main' && success() }}
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Publish artifacts (placeholder)
+        run: echo 'Publishing artifacts (placeholder)'
+        shell: sh
+
+  archive_artifacts:
+    needs: [build, unit_tests, lint, publish_artifacts]
+    if: always()
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7.0-jdk17-alpine
+      options: --user root
+    steps:
+      - name: Download build workspace
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: build-workspace
+          path: build
+
+      - name: Archive JAR artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archived-jars
+          path: build/libs/*.jar
+          if-no-files-found: error

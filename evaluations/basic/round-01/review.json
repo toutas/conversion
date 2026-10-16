@@ -1,0 +1,8 @@
+{
+  "verdict": "approve",
+  "findings": [],
+  "limitations": [
+    "Static review cannot establish whether the selected GitHub-hosted runner has a compatible JDK or whether Gradle can complete successfully; the source specifies neither a JDK version nor a Jenkins agent platform.",
+    "Workflow execution, JUnit check publication, and artifact upload were not verified at runtime."
+  ]
+}
