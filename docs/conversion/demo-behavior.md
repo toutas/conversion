@@ -70,38 +70,11 @@ flowchart TD
     Exhausted --> Report
     InvalidReview --> Report
     BackendError --> Report
-
-    click Input href "../../src/conversion/cli.py#L47-L50" "Read the source Jenkinsfile"
-    click Setup href "../../src/conversion/loop.py#L33-L41" "Validate input and create artifacts"
-    click Round href "../../src/conversion/loop.py#L48-L54" "Bounded conversion rounds"
-    click StartRound href "../../src/conversion/loop.py#L49-L51" "Initialize this round"
-    click Convert href "../../src/conversion/loop.py#L78-L81" "Call the converter"
-    click ParseConversion href "../../src/conversion/loop.py#L82-L90" "Validate the converter response"
-    click ConversionFeedback href "../../src/conversion/loop.py#L84-L90" "Record malformed-conversion feedback"
-    click Converted href "../../src/conversion/loop.py#L91-L92" "Save the validated conversion"
-    click Checks href "../../src/conversion/loop.py#L55-L61" "Write and check the candidate"
-    click CheckFeedback href "../../src/conversion/loop.py#L62-L65" "Assemble feedback before the check gate"
-    click Gate href "../../src/conversion/loop.py#L66-L67" "Skip review when any check fails"
-    click Review href "../../src/conversion/loop.py#L97-L105" "Call the reviewer"
-    click ParseReview href "../../src/conversion/loop.py#L106-L112" "Validate the reviewer response"
-    click InvalidReview href "../../src/conversion/loop.py#L108-L112" "Stop on an invalid review"
-    click ReviewFeedback href "../../src/conversion/loop.py#L113-L117" "Save the review and update feedback"
-    click Verdict href "../../src/conversion/loop.py#L119-L133" "Apply the review verdict"
-    click Accepted href "../../src/conversion/loop.py#L120-L124" "Publish the accepted workflow"
-    click Blocked href "../../src/conversion/loop.py#L125-L127" "Stop on a blocked verdict"
-    click Repeat href "../../src/conversion/loop.py#L128-L129" "Check all previously rejected candidates"
-    click Stalled href "../../src/conversion/loop.py#L129-L131" "Stop on repeated rejected YAML"
-    click Remember href "../../src/conversion/loop.py#L132-L133" "Remember rejected YAML before continuing"
-    click Exhausted href "../../src/conversion/models.py#L39-L42" "Default status when all rounds are consumed"
-    click BackendError href "../../src/conversion/loop.py#L71-L73" "Handle a backend error in run"
-    click Report href "../../src/conversion/loop.py#L74-L75" "Write the final report and return"
 ```
 
 The groups identify implementation segments: `run` orchestrates the helper
-calls, while input and setup happen before it. Nodes in both diagrams link to
-source ranges where the renderer supports clickable Mermaid links. The tables
-provide ordinary Markdown links when it does not; line ranges need updating
-when the implementation moves.
+calls, while input and setup happen before it. The tables link both diagrams
+to source ranges.
 
 | Control-flow segment | Source |
 |---|---|
@@ -139,15 +112,6 @@ flowchart LR
     ReviewContext --> Reviewer
     Reviewer --> Findings
     Findings -->|If another attempt is allowed| Feedback
-
-    click Source href "../../src/conversion/cli.py#L47-L50" "Read the source Jenkinsfile"
-    click Feedback href "../../src/conversion/loop.py#L77-L90" "Consume prior feedback and record conversion errors"
-    click Converter href "../../src/conversion/loop.py#L77-L92" "Build converter context and parse the response"
-    click Conversion href "../../src/conversion/responses.py#L87-L114" "Structured conversion fields and validation"
-    click Checks href "../../src/conversion/loop.py#L55-L67" "Run checks and assemble candidate feedback"
-    click ReviewContext href "../../src/conversion/loop.py#L94-L104" "Build the distinct reviewer context"
-    click Reviewer href "../../src/conversion/loop.py#L94-L117" "Call the reviewer and process its response"
-    click Findings href "../../src/conversion/responses.py#L137-L170" "Structured review fields and validation"
 ```
 
 | Context-flow element | Source |
