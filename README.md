@@ -22,3 +22,7 @@ with `actionlint` workflows are linted automatically.
 add `--require-actionlint` to fail early when it is unavailable.
 
 Each output directory contains `report.json`, `backend.json`, and per-round conversion, validation, and review artifacts. An accepted conversion also writes the `workflow.yml` in that directory.
+
+## Docs
+
+[Conversion docs](docs/conversion/README.md)
