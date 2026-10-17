@@ -10,3 +10,5 @@ The implementation is a very simplified demo. Example inputs are the [basic](../
 
 
 [Demo behavior](demo-behavior.md) - describes behavior implemented in `/src`
+
+[Design options](design-options.md) - explores design options
